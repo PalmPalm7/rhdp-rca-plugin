@@ -1,0 +1,25 @@
+{
+  "name": "aiops-marketplace",
+  "owner": {
+    "name": "ACE",
+    "email": "ace-octo-dist@redhat.com"
+  },
+  "metadata": {
+    "description": "AIOps skills for log analysis, root cause analysis and operational tasks",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "aiops-plugin",
+      "description": "Collection of AIOps skills for root cause analysis, log analysis, and operational tasks",
+      "source": "./",
+      "strict": false,
+      "skills": [
+        "./skills/root-cause-analysis",
+        "./skills/context-fetcher",
+        "./skills/logs-fetcher",
+        "./skills/feedback-capture"
+      ]
+    }
+  ]
+}
