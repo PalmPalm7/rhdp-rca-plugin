@@ -165,18 +165,31 @@ def _extract_failed_tasks(events: list[dict]) -> list[dict[str, Any]]:
             event_data = event.get("event_data", {})
             res = event_data.get("res", {})
 
-            failed.append(
-                {
-                    "task": event.get("task", ""),
-                    "play": event.get("play", ""),
-                    "role": event.get("role", ""),
-                    "timestamp": event.get("created", ""),
-                    "error_message": res.get("msg", "") if isinstance(res, dict) else str(res),
-                    "task_path": event_data.get("task_path", ""),
-                    "task_action": event_data.get("task_action", ""),
-                    "duration": event_data.get("duration", 0),
-                }
-            )
+            task_info = {
+                "task": event.get("task", ""),
+                "play": event.get("play", ""),
+                "role": event.get("role", ""),
+                "timestamp": event.get("created", ""),
+                "error_message": res.get("msg", "") if isinstance(res, dict) else str(res),
+                "task_path": event_data.get("task_path", ""),
+                "task_action": event_data.get("task_action", ""),
+                "duration": event_data.get("duration", 0),
+            }
+
+            # Extract diagnostic details from res when available
+            if isinstance(res, dict):
+                for field in ("stdout", "stderr", "cmd", "rc"):
+                    value = res.get(field)
+                    if value is not None and value != "":
+                        task_info[field] = value
+
+            # Fallback: capture event-level stdout when res fields are missing
+            if "stdout" not in task_info:
+                event_stdout = event.get("stdout", "")
+                if event_stdout:
+                    task_info["stdout"] = event_stdout
+
+            failed.append(task_info)
 
     return failed
 
