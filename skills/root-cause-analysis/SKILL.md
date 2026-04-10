@@ -97,7 +97,7 @@ python3 -m venv .venv
 
 ### Summary Requirements
 
-1. **Root Cause**: Category — prefer `classification.json` categories when matched (`platform_failure|connectivity_failure|authentication_failure|resource_failure|timeout_failure|automation_failure|infrastructure_failure`). Fall back to (`configuration|infrastructure|workload_bug|credential|resource|dependency`) only for novel/unclassified errors. Include summary and confidence.
+1. **Root Cause**: Category — prefer `classification.json` categories when matched (`platform_failure|connectivity_failure|authentication_failure|resource_failure|timeout_failure|automation_failure|infrastructure_failure`). Fall back to (`configuration|infrastructure|application_bug|secrets|resource|dependency`) only for novel/unclassified errors. Include summary and confidence.
 2. **Evidence**: Supporting evidence from AAP logs, Splunk logs, and GitHub configs/code
    - **REQUIRED**: When `source` is `agnosticv_config` or `agnosticd_code`, **MUST** include `github_path` in format `owner/repo:path/to/file.yml:line`
    - Extract GitHub paths from step4:

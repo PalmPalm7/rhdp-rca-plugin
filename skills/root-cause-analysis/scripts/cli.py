@@ -213,28 +213,31 @@ def cmd_analyze(args: argparse.Namespace, config: Config) -> int:
         local_path=getattr(args, "known_failures_file", None),
     )
     classification_path = analysis_dir / "classification.json"
+    classification_result: dict = {
+        "patterns_loaded": len(known_failures),
+        "matches": [],
+    }
     if known_failures:
         classifications = classify_job_errors(job_context, correlation, known_failures)
-        classification_result = {
-            "patterns_loaded": len(known_failures),
-            "matches": classifications,
-        }
-        with open(classification_path, "w") as f:
-            json.dump(classification_result, f, indent=2)
+        classification_result["matches"] = classifications
         if classifications:
             print(f"  Matched {len(classifications)} error(s) against known patterns")
             for c in classifications:
                 print(f"    - {c['error_category']}: {c['failure_description']}")
         else:
             print("  No matches — errors may be novel/unclassified")
-        print(f"  Output: {classification_path}")
     else:
+        classification_result["skipped"] = True
+        classification_result["reason"] = "no known failure patterns configured"
         print("  Skipped: no known failure patterns configured (optional)")
         print(
             "  Hint: Use --known-failures-file <path> or --known-failures-url <url>,"
             " or set KNOWN_FAILED_YAML_URL / KNOWN_FAILED_YAML"
             " in .claude/settings.local.json env block"
         )
+    with open(classification_path, "w") as f:
+        json.dump(classification_result, f, indent=2)
+    print(f"  Output: {classification_path}")
 
     # Print summary
     print("\n" + "=" * 60)
