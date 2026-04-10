@@ -64,9 +64,12 @@ def load_known_failures(yaml_path: str | Path) -> list[dict]:
 def _parse_yaml_content(content: str) -> list[dict]:
     """Parse YAML content and extract the failures list."""
     data = yaml.safe_load(content)
-    if not data:
+    if not isinstance(data, dict):
         return []
-    return data.get("failures", [])
+    failures = data.get("failures", [])
+    if not isinstance(failures, list):
+        return []
+    return [f for f in failures if isinstance(f, dict)]
 
 
 def classify_error(error_message: str, known_failures: list[dict]) -> dict | None:
