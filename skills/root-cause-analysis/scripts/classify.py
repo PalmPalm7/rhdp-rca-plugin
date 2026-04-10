@@ -14,7 +14,6 @@ import re
 import tempfile
 from pathlib import Path
 
-import requests
 import yaml
 
 # Cache dir for downloaded known_failed.yaml
@@ -28,6 +27,8 @@ def fetch_known_failures_from_url(url: str) -> list[dict]:
     Caches the file locally. Returns the parsed failures list.
     """
     _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    import requests
 
     headers = {}
     github_token = os.environ.get("GITHUB_TOKEN", "")

@@ -7,7 +7,6 @@ import yaml
 
 from scripts.classify import classify_error, classify_job_errors, load_known_failures
 
-
 SAMPLE_FAILURES = [
     {
         "error_string": "Shared connection to.*compute.amazonaws.com closed",
