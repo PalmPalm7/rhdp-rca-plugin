@@ -30,7 +30,8 @@
   expected_keywords:
     - job
   expected_tool_calls: []
-  forbidden_tool_calls: []
+  # Refusal/clarification path — the agent shouldn't reach for any tool.
+  forbidden_tool_calls: [Bash, Read, Write, Edit, Grep, Glob]
   max_cost_usd: 0.25
   timeout_seconds: 120
 

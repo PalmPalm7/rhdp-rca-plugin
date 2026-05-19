@@ -55,11 +55,15 @@ try {
       numTurns += 1;
     }
   }
-  if (result.stderr && !finalText) {
+  if (result.exitCode !== 0) {
+    // Non-zero exit is always a failure — even if some text streamed before the
+    // crash, the run can't be trusted. Prefer the last stderr line as the error
+    // string since it's usually the actual reason.
+    const stderrTail = result.stderr?.trim().split("\n").slice(-1)[0];
+    error = error ?? stderrTail ?? `opencode exited ${result.exitCode}`;
+  } else if (result.stderr && !finalText) {
+    // Successful exit with stderr noise and no text → surface stderr.
     error = result.stderr.trim().split("\n").slice(-1)[0] || null;
-  }
-  if (result.exitCode !== 0 && !finalText) {
-    error = error ?? `opencode exited ${result.exitCode}`;
   }
 } catch (err) {
   error = `${err.name}: ${err.message}`;
@@ -82,14 +86,22 @@ function emit(obj) {
 
 function runOpencode(bin, args, payload) {
   return new Promise((resolveP) => {
+    let stdoutBuf = "";
+    let stderrBuf = "";
+    const events = [];
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(killer);
+      resolveP(result);
+    };
+
     const proc = spawn(bin, args, {
       env: process.env,
       cwd: payload.cwd,
       stdio: ["ignore", "pipe", "pipe"],
     });
-    let stdoutBuf = "";
-    let stderrBuf = "";
-    const events = [];
     const killer = setTimeout(() => proc.kill("SIGTERM"), (payload.timeoutSeconds + 10) * 1000);
     proc.stdout.on("data", (chunk) => {
       stdoutBuf += chunk.toString();
@@ -102,9 +114,13 @@ function runOpencode(bin, args, payload) {
       }
     });
     proc.stderr.on("data", (chunk) => { stderrBuf += chunk.toString(); });
+    // spawn() emits 'error' (and not 'close') when the binary can't be
+    // exec'd (ENOENT, EACCES) — without this handler the Promise hangs.
+    proc.on("error", (err) => {
+      finish({ exitCode: 1, events, stderr: `${stderrBuf}spawn error: ${err.message}` });
+    });
     proc.on("close", (code) => {
-      clearTimeout(killer);
-      resolveP({ exitCode: code ?? 1, events, stderr: stderrBuf });
+      finish({ exitCode: code ?? 1, events, stderr: stderrBuf });
     });
   });
 }

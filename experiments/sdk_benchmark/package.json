@@ -9,8 +9,8 @@
     "smoke:pi": "node benchmark/runners/pi_runner.mjs < /dev/null"
   },
   "dependencies": {
-    "@earendil-works/pi-coding-agent": "*",
-    "@opencode-ai/sdk": "*",
+    "@earendil-works/pi-coding-agent": "^0.75.3",
+    "@opencode-ai/sdk": "^1.15.5",
     "opencode-ai": "^1.15.5"
   },
   "engines": {

@@ -107,7 +107,21 @@ def main(argv: list[str] | None = None) -> int:
                 timeout_seconds=scenario.timeout_seconds,
                 provider=args.provider,
             )
-            result = adapter.run(request)
+            try:
+                result = adapter.run(request)
+            except Exception as exc:
+                # An unhandled adapter crash shouldn't sink the whole matrix —
+                # synthesize a failure row and keep going.
+                from .adapters.base import SkillRunResult
+
+                result = SkillRunResult(
+                    adapter=adapter_name,
+                    scenario_id=scenario.id,
+                    model=args.model,
+                    success=False,
+                    final_text="",
+                    error=f"adapter raised: {type(exc).__name__}: {exc}",
+                )
             cost = result.native_cost_usd
             if cost is None:
                 cost = cost_from_tokens(

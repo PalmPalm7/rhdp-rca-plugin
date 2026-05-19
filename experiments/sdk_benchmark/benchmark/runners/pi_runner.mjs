@@ -25,6 +25,8 @@ let nativeCostUsd = null;
 let numTurns = 0;
 let error = null;
 
+let session = null;
+let unsub = null;
 try {
   const authStorage = AuthStorage.create();
 
@@ -45,7 +47,7 @@ try {
     throw new Error(`Model not found: provider=${provider} id=${modelId}`);
   }
 
-  const { session } = await createAgentSession({
+  const created = await createAgentSession({
     sessionManager: SessionManager.inMemory(),
     authStorage,
     modelRegistry,
@@ -53,8 +55,9 @@ try {
     cwd: payload.cwd,
     systemPrompt: payload.systemPrompt,
   });
+  session = created.session;
 
-  const unsub = session.subscribe?.((event) => {
+  unsub = session.subscribe?.((event) => {
     if (event?.type === "message_update") {
       const sub = event.assistantMessageEvent;
       if (!sub) return;
@@ -66,8 +69,6 @@ try {
   });
 
   await session.prompt(payload.prompt);
-
-  if (typeof unsub === "function") unsub();
 
   // session.getSessionStats() is the documented API — returns SessionStats with
   // { tokens: {input, output, cacheRead, cacheWrite, total}, cost, toolCalls, ... }.
@@ -99,10 +100,16 @@ try {
       }
     }
   }
-
-  session.dispose?.();
 } catch (err) {
   error = `${err.name}: ${err.message}`;
+} finally {
+  // Always release the event subscription and dispose the session, even when
+  // an error short-circuited the happy path. Otherwise back-to-back benchmark
+  // runs leak file handles and event listeners.
+  if (typeof unsub === "function") {
+    try { unsub(); } catch (_e) { /* swallow — cleanup */ }
+  }
+  try { session?.dispose?.(); } catch (_e) { /* swallow — cleanup */ }
 }
 
 const durationSeconds = Number(process.hrtime.bigint() - started) / 1e9;

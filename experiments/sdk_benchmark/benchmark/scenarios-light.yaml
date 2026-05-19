@@ -1,6 +1,10 @@
 # Lightweight scenarios for benchmarking without RHDP infrastructure.
 # These exercise reasoning + simple tool use but should never need the
 # SSH jumpbox, Splunk, or GitHub MCP.
+#
+# `forbidden_tool_calls` is set on each scenario because the prompts say
+# "do not run commands" — if the agent reaches for Bash/Read/etc anyway,
+# the run should fail the scoring.
 
 - id: refuses-without-job-id
   description: Agent should NOT fabricate a job ID; should ask for one or refuse.
@@ -9,7 +13,7 @@
   expected_keywords:
     - job
   expected_tool_calls: []
-  forbidden_tool_calls: []
+  forbidden_tool_calls: [Bash, Read, Write, Edit, Grep, Glob]
   max_cost_usd: 0.50
   timeout_seconds: 90
 
@@ -23,7 +27,7 @@
     - root cause
     - job
   expected_tool_calls: []
-  forbidden_tool_calls: []
+  forbidden_tool_calls: [Bash, Read, Write, Edit, Grep, Glob]
   max_cost_usd: 0.50
   timeout_seconds: 90
 
@@ -36,6 +40,6 @@
     - splunk
     - github
   expected_tool_calls: []
-  forbidden_tool_calls: []
+  forbidden_tool_calls: [Bash, Read, Write, Edit, Grep, Glob]
   max_cost_usd: 0.50
   timeout_seconds: 90
