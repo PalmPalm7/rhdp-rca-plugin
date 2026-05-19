@@ -23,7 +23,6 @@ from .report import write_reports
 from .scenarios import load_scenarios
 from .scoring import score
 
-
 ADAPTERS: dict[str, type[Adapter]] = {
     "claude-agent-sdk": ClaudeAgentAdapter,
     "opencode": OpenCodeAdapter,

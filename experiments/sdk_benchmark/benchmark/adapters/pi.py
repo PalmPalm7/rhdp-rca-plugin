@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .base import Adapter, SkillRunRequest, SkillRunResult
 from ._subprocess import run_node_adapter
-
+from .base import Adapter, SkillRunRequest, SkillRunResult
 
 RUNNER = Path(__file__).resolve().parents[1] / "runners" / "pi_runner.mjs"
 

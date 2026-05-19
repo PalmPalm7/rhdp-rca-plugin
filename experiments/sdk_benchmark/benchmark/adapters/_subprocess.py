@@ -13,8 +13,8 @@ import subprocess
 import time
 from pathlib import Path
 
-from .base import Adapter, SkillRunRequest, SkillRunResult, TokenUsage
 from ..skill_loader import skill_body
+from .base import SkillRunRequest, SkillRunResult, TokenUsage
 
 
 def run_node_adapter(

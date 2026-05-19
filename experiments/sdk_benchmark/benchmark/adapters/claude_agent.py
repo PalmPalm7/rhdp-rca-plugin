@@ -4,10 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import time
-from pathlib import Path
 
-from .base import Adapter, SkillRunRequest, SkillRunResult, TokenUsage
 from ..skill_loader import skill_body
+from .base import Adapter, SkillRunRequest, SkillRunResult, TokenUsage
 
 
 class ClaudeAgentAdapter(Adapter):
@@ -22,9 +21,9 @@ class ClaudeAgentAdapter(Adapter):
     async def _run(self, request: SkillRunRequest) -> SkillRunResult:
         try:
             from claude_agent_sdk import (
+                AssistantMessage,
                 ClaudeAgentOptions,
                 ResultMessage,
-                AssistantMessage,
                 query,
             )
         except ImportError as e:
