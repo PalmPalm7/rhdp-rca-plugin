@@ -48,10 +48,7 @@ def score(result: SkillRunResult, scenario: Scenario, cost_usd: float | None) ->
         notes.append(f"cost ${cost_usd:.4f} exceeded budget ${scenario.max_cost_usd:.4f}")
 
     success = bool(
-        result.error is None
-        and not keyword_misses
-        and not forbidden
-        and not over_budget
+        result.error is None and not keyword_misses and not forbidden and not over_budget
     )
 
     return Score(

@@ -50,7 +50,11 @@ def run_node_adapter(
             timeout=request.timeout_seconds + 30,
         )
     except FileNotFoundError:
-        return _error(name, request, "node executable not found. Install Node 18+ and ensure `node` is on PATH.")
+        return _error(
+            name,
+            request,
+            "node executable not found. Install Node 18+ and ensure `node` is on PATH.",
+        )
     except subprocess.TimeoutExpired:
         return _error(name, request, f"runner exceeded timeout ({request.timeout_seconds}s)")
 
@@ -98,6 +102,7 @@ def run_node_adapter(
 
 def _runner_env(request: SkillRunRequest) -> dict[str, str]:
     import os
+
     env = os.environ.copy()
     env.update(request.env)
     return env

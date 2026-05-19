@@ -95,7 +95,9 @@ def _markdown(rows, model: str) -> str:
     for adapter in sorted(by_adapter):
         lines.append(f"### `{adapter}`")
         lines.append("")
-        lines.append("| Scenario | Success | Cost (USD) | Duration (s) | Turns | Keywords hit | Notes |")
+        lines.append(
+            "| Scenario | Success | Cost (USD) | Duration (s) | Turns | Keywords hit | Notes |"
+        )
         lines.append("|---|---|---|---|---|---|---|")
         for scenario, result, score_obj, cost in by_adapter[adapter]:
             cost_str = f"{cost:.4f}" if cost is not None else "—"

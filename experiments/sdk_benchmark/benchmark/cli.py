@@ -36,16 +36,38 @@ def main(argv: list[str] | None = None) -> int:
 
     run = sub.add_parser("run", help="Run the benchmark")
     run.add_argument("--scenarios", type=Path, required=True)
-    run.add_argument("--skill", type=Path, required=True, help="Path to the skill directory (containing SKILL.md)")
+    run.add_argument(
+        "--skill",
+        type=Path,
+        required=True,
+        help="Path to the skill directory (containing SKILL.md)",
+    )
     run.add_argument("--model", default="claude-sonnet-4-6")
-    run.add_argument("--adapters", default="claude-agent-sdk,opencode,pi",
-                     help="Comma-separated subset of adapters to run.")
-    run.add_argument("--provider", default="anthropic", choices=["anthropic", "openrouter"],
-                     help="Routes auth + model naming. 'openrouter' expects OPENROUTER_API_KEY in env.")
-    run.add_argument("--out-dir", type=Path, default=Path(__file__).resolve().parent.parent / "results")
-    run.add_argument("--cwd", type=Path, default=None, help="Working directory for the agent. Defaults to skill parent.")
-    run.add_argument("--dry-run", action="store_true",
-                     help="Skip SDK calls; just verify scenarios load and adapters are reachable.")
+    run.add_argument(
+        "--adapters",
+        default="claude-agent-sdk,opencode,pi",
+        help="Comma-separated subset of adapters to run.",
+    )
+    run.add_argument(
+        "--provider",
+        default="anthropic",
+        choices=["anthropic", "openrouter"],
+        help="Routes auth + model naming. 'openrouter' expects OPENROUTER_API_KEY in env.",
+    )
+    run.add_argument(
+        "--out-dir", type=Path, default=Path(__file__).resolve().parent.parent / "results"
+    )
+    run.add_argument(
+        "--cwd",
+        type=Path,
+        default=None,
+        help="Working directory for the agent. Defaults to skill parent.",
+    )
+    run.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Skip SDK calls; just verify scenarios load and adapters are reachable.",
+    )
 
     args = parser.parse_args(argv)
     if args.command != "run":
@@ -99,7 +121,9 @@ def main(argv: list[str] | None = None) -> int:
             rows.append((scenario, result, score_obj, cost))
             status = "OK" if score_obj.success else "FAIL"
             cost_str = f"${cost:.4f}" if cost is not None else "(no cost)"
-            print(f"  → {status} duration={result.duration_seconds:.1f}s cost={cost_str}", flush=True)
+            print(
+                f"  → {status} duration={result.duration_seconds:.1f}s cost={cost_str}", flush=True
+            )
 
     md_path, json_path = write_reports(args.out_dir, rows, args.model)
     print(f"\nReports written:\n  - {md_path}\n  - {json_path}")

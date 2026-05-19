@@ -24,7 +24,9 @@ class SkillRunRequest:
     """SDK-agnostic model name, e.g. 'claude-sonnet-4-6'. Adapters translate
     to the SDK's expected format."""
 
-    allowed_tools: list[str] = field(default_factory=lambda: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"])
+    allowed_tools: list[str] = field(
+        default_factory=lambda: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+    )
     cwd: Path | None = None
     timeout_seconds: int = 600
     env: dict[str, str] = field(default_factory=dict)
