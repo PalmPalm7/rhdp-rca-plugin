@@ -1,11 +1,19 @@
 """Tests for classify.py — known failure pattern matching."""
 
+import base64
+import json
 import tempfile
 from pathlib import Path
 
 import yaml
 
-from scripts.classify import classify_error, classify_job_errors, load_known_failures
+from scripts.classify import (
+    _cache_path_for,
+    _extract_yaml_text,
+    classify_error,
+    classify_job_errors,
+    load_known_failures,
+)
 
 SAMPLE_FAILURES = [
     {
@@ -124,6 +132,46 @@ def test_classify_job_errors_reads_details_message():
     assert len(results) == 3
     categories = {r["error_category"] for r in results}
     assert categories == {"connectivity_failure", "automation_failure", "timeout_failure"}
+
+
+def test_classify_job_errors_reads_top_level_message():
+    """A top-level message on a timeline event is classified as a fallback."""
+    correlation = {
+        "timeline_events": [
+            {"source": "splunk_ocp", "message": "MODULE FAILURE"},
+        ]
+    }
+    results = classify_job_errors({}, correlation, SAMPLE_FAILURES)
+    assert len(results) == 1
+    assert results[0]["error_category"] == "automation_failure"
+
+
+def test_extract_yaml_text_passthrough_for_raw():
+    """Plain raw YAML (from curl / raw.githubusercontent.com) is returned as-is."""
+    raw = "failures:\n  - error_string: MODULE FAILURE\n"
+    assert _extract_yaml_text(raw) == raw
+
+
+def test_extract_yaml_text_decodes_github_metadata():
+    """GitHub contents-API JSON metadata is decoded to its underlying YAML."""
+    yaml_body = "failures:\n  - error_string: MODULE FAILURE\n    category: automation_failure\n"
+    metadata = json.dumps(
+        {
+            "name": "known_failed.yaml",
+            "encoding": "base64",
+            "content": base64.b64encode(yaml_body.encode()).decode(),
+        }
+    )
+    assert _extract_yaml_text(metadata) == yaml_body
+
+
+def test_cache_path_is_scoped_per_url():
+    """Different URLs must resolve to different cache files (no cross-source reuse)."""
+    a = _cache_path_for("https://raw.example.test/a/known_failed.yaml")
+    b = _cache_path_for("https://raw.example.test/b/known_failed.yaml")
+    assert a != b
+    # Same URL is stable across calls.
+    assert a == _cache_path_for("https://raw.example.test/a/known_failed.yaml")
 
 
 def test_classify_job_errors_deduplicates():

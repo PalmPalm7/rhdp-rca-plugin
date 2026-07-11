@@ -47,7 +47,7 @@ Add the following environment variables to your Claude Code settings file:
     "SPLUNK_OCP_APP_INDEX": "your_ocp_app_index",
     "SPLUNK_OCP_INFRA_INDEX": "your_ocp_infra_index",
     "SPLUNK_VERIFY_SSL": "false",
-    "KNOWN_FAILED_YAML_URL": "https://api.github.com/repos/your-org/your-repo/contents/path/to/known_failed.yaml"
+    "KNOWN_FAILED_YAML_URL": "https://raw.githubusercontent.com/<owner>/<repo>/<branch>/known_failed.yaml"
   }
 }
 ```
@@ -61,7 +61,12 @@ Update the values:
 - `SPLUNK_USERNAME` / `SPLUNK_PASSWORD` - Your Splunk credentials
 - `SPLUNK_INDEX` - Default index for AAP logs
 - `SPLUNK_OCP_APP_INDEX` / `SPLUNK_OCP_INFRA_INDEX` - OCP log indices
-- `KNOWN_FAILED_YAML_URL` - URL to `known_failed.yaml` for error classification (e.g., GitHub API content URL). Uses `GITHUB_TOKEN` for authentication if the URL points to `api.github.com`. The file is cached locally after first fetch. Alternatively, set `KNOWN_FAILED_YAML` to a local file path. Can also be passed via `--known-failures-url` or `--known-failures-file` CLI flags.
+- `KNOWN_FAILED_YAML_URL` / `KNOWN_FAILED_YAML` - **Optional** source of known failure patterns for error classification. The whole classification step is skipped gracefully if neither is set (the rest of the pipeline runs unchanged). You do **not** need a GitHub token — pick whichever source fits your access:
+  - **Local file** (no network): set `KNOWN_FAILED_YAML` to a path, or pass `--known-failures-file <path>`.
+  - **Plain raw URL over HTTP/curl** (no credentials): set `KNOWN_FAILED_YAML_URL` to a raw URL such as `https://raw.githubusercontent.com/<owner>/<repo>/<branch>/known_failed.yaml`, or pass `--known-failures-url <url>`. This is the recommended option for users who cannot use a GitHub token.
+  - **GitHub contents API** (`https://api.github.com/repos/<owner>/<repo>/contents/<path>/known_failed.yaml`): works with or without a token — the raw `Accept` header is always sent so unauthenticated requests still return file content. A `GITHUB_TOKEN`, if set, is used only to reach **private** repositories.
+
+  Fetched URLs are cached locally (keyed per URL) so a later fetch failure never falls back to patterns from a different source. CLI flags override the env vars. Do **not** commit real/private URLs — the examples above are placeholders.
 
 ### 3. Configure SSH for auto-fetch (optional)
 
@@ -158,6 +163,22 @@ Alternatively, specify the log file directly:
 ```bash
 .venv/bin/python scripts/cli.py analyze --job-log /path/to/job_1234567.json.gz
 ```
+
+### Classify Against Known Failure Patterns (optional)
+
+Provide a `known_failed.yaml` from a local file or a plain URL — no GitHub token required. If neither is supplied, classification is skipped and the rest of the pipeline runs normally.
+
+```bash
+# From a local file
+.venv/bin/python scripts/cli.py analyze --job-id 1234567 \
+  --known-failures-file /path/to/known_failed.yaml
+
+# From a raw URL over plain HTTP/curl (no credentials)
+.venv/bin/python scripts/cli.py analyze --job-id 1234567 \
+  --known-failures-url https://raw.githubusercontent.com/<owner>/<repo>/<branch>/known_failed.yaml
+```
+
+These flags override the `KNOWN_FAILED_YAML` / `KNOWN_FAILED_YAML_URL` env vars (see the configuration section above). The example URL is a placeholder — substitute your own repository.
 
 ### Other Commands
 

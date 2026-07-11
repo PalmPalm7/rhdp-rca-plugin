@@ -1,14 +1,22 @@
 """Classify error messages against known failure patterns.
 
 Loads a curated YAML file of regex-based error patterns and matches them
-against error messages from RCA steps 1 and 3. The YAML file can be
-provided via URL, local file path, or CLI flags.
+against error messages from RCA steps 1 and 3. The pattern source is fully
+optional and can be provided three ways, none of which require a GitHub token:
 
-Configuration (in .claude/settings.local.json env block):
-  KNOWN_FAILED_YAML_URL — URL to fetch the YAML file (cached locally)
-  KNOWN_FAILED_YAML     — local file path (fallback)
+  * ``--known-failures-file`` / ``KNOWN_FAILED_YAML`` — a local file path
+  * ``--known-failures-url`` / ``KNOWN_FAILED_YAML_URL`` — any HTTP(S) URL,
+    including a plain raw URL fetched over ``curl``/HTTP with no credentials
+    (e.g. https://raw.githubusercontent.com/<owner>/<repo>/<branch>/known_failed.yaml)
+
+A ``GITHUB_TOKEN`` is only used to authenticate private ``api.github.com``
+repositories; when it is absent the request is still made. When no source is
+configured at all, classification is skipped gracefully (zero patterns loaded).
 """
 
+import base64
+import hashlib
+import json
 import os
 import re
 import tempfile
@@ -16,35 +24,56 @@ from pathlib import Path
 
 import yaml
 
-# Cache dir for downloaded known_failed.yaml
+# Cache dir for downloaded known_failed.yaml files. Each source URL gets its
+# own cache file (keyed by a hash of the URL) so a failed fetch for one URL
+# never reuses patterns cached from a different URL.
 _CACHE_DIR = Path(tempfile.gettempdir()) / "rhdp-rca"
-_CACHE_FILE = _CACHE_DIR / "known_failed.yaml"
+
+
+def _cache_path_for(url: str) -> Path:
+    """Return a per-URL cache file path so caches never cross sources."""
+    digest = hashlib.sha256(url.encode("utf-8")).hexdigest()[:16]
+    return _CACHE_DIR / f"known_failed_{digest}.yaml"
 
 
 def fetch_known_failures_from_url(url: str) -> list[dict]:
     """Fetch known failure patterns YAML from a URL.
 
-    Caches the file locally. Returns the parsed failures list.
+    Works with a plain raw URL (e.g. raw.githubusercontent.com) fetched over
+    HTTP with no credentials, as well as ``api.github.com/.../contents`` URLs.
+    A ``GITHUB_TOKEN`` is optional and only used to authenticate private
+    repositories; when it is absent the request is still made and the raw
+    ``Accept`` header is sent so GitHub returns file content rather than JSON
+    metadata.
+
+    Caches the file locally, keyed by URL so a failed fetch never falls back to
+    patterns cached from a different source. Returns the parsed failures list.
     """
     _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    cache_file = _cache_path_for(url)
 
     import requests
 
     headers = {}
-    github_token = os.environ.get("GITHUB_TOKEN", "")
-    if github_token and "api.github.com" in url:
-        headers["Authorization"] = f"token {github_token}"
+    is_github_api = "api.github.com" in url
+    if is_github_api:
+        # Request raw content even without a token; unauthenticated
+        # api.github.com/contents requests otherwise return JSON metadata.
         headers["Accept"] = "application/vnd.github.v3.raw"
+    github_token = os.environ.get("GITHUB_TOKEN", "")
+    if github_token and is_github_api:
+        headers["Authorization"] = f"token {github_token}"
 
     try:
         resp = requests.get(url, headers=headers, timeout=15)
         resp.raise_for_status()
-        _CACHE_FILE.write_text(resp.text)
-        return _parse_yaml_content(resp.text)
+        content = _extract_yaml_text(resp.text)
+        cache_file.write_text(content)
+        return _parse_yaml_content(content)
     except (requests.RequestException, yaml.YAMLError) as e:
-        # Fall back to cache if fetch fails
-        if _CACHE_FILE.exists():
-            return load_known_failures(_CACHE_FILE)
+        # Fall back only to this URL's own cache, never another source's.
+        if cache_file.exists():
+            return load_known_failures(cache_file)
         print(f"  Warning: Failed to fetch known failure patterns: {e}")
         return []
 
@@ -59,6 +88,29 @@ def load_known_failures(yaml_path: str | Path) -> list[dict]:
             return _parse_yaml_content(f.read())
     except (yaml.YAMLError, OSError):
         return []
+
+
+def _extract_yaml_text(text: str) -> str:
+    """Return raw YAML text, decoding GitHub JSON metadata if necessary.
+
+    A plain raw URL returns YAML directly. If an ``api.github.com/contents``
+    request is served as JSON metadata (e.g. the raw ``Accept`` header was
+    ignored on an unauthenticated request), decode the base64 ``content`` field
+    so the caller always receives YAML instead of silently parsing zero
+    patterns from the metadata envelope.
+    """
+    if not text.lstrip().startswith("{"):
+        return text
+    try:
+        meta = json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return text
+    if isinstance(meta, dict) and meta.get("encoding") == "base64" and "content" in meta:
+        try:
+            return base64.b64decode(meta["content"]).decode("utf-8")
+        except (ValueError, UnicodeDecodeError):
+            return text
+    return text
 
 
 def _parse_yaml_content(content: str) -> list[dict]:
@@ -120,12 +172,17 @@ def classify_job_errors(
                 match["task"] = task.get("task", "")
                 results.append(match)
 
-    # Collect error messages from step3 timeline events
-    # Timeline events store messages in details.message (for aap_job) or
-    # details.message (for splunk_ocp), not at the top level.
+    # Collect error messages from step3 timeline events. build_correlation_timeline()
+    # stores the log text under details.message (splunk_ocp / pod & Splunk logs) or
+    # details.error_message (aap_job). Fall back to a top-level message key so text
+    # that only surfaces in pod/Splunk logs is still classified.
     for event in correlation.get("timeline_events", []):
         details = event.get("details", {})
-        msg = details.get("message", "") or details.get("error_message", "")
+        msg = (
+            details.get("message", "")
+            or details.get("error_message", "")
+            or event.get("message", "")
+        )
         if msg and msg not in seen_messages:
             seen_messages.add(msg)
             match = classify_error(msg, known_failures)
